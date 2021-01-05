@@ -1,6 +1,33 @@
 # sclecture21
 Project repo for sc analysis course.
 
+## Useful info for LRZ
+login and pass were shared. When logged in:
+```bash
+module load python
+conda create -n py38 python=3.8
+source activate py38
+# install your software, e.g. 
+conda install numpy pandas matplotlib seaborn
+#then clone and install scanpy
+git clone https://github.com/theislab/scanpy.git
+cd scanpy
+pip install -e .
+# and install useful scanpy modules
+pip install leidenalg pynndescent
+# and maybe jupyter lab/nb ?
+pip install jupyterlab
+```
+To start jupyter
+```bash
+# make new login setting the port
+ssh -Y lxlogin1.lrz.de -l di82cof -L 6006:localhost:6006
+# then load usual stuff
+module load python
+source activate py38
+jupyter-lab --no-browser --port=6006
+# copy URL in your browser
+```
 ## Available projects (to be discussed)
 ### Spatial statistics and global tissue context  
 A central goal of spatial transcriptomics is to understand global spatial organization and cellular neighborhood structure. Spatial statistics can give insights on such properties. Tasks include:
