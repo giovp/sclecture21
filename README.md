@@ -1,52 +1,20 @@
-# sclecture21
-Project repo for sc analysis course.
+# Image Analysis and Segmentation
 
-## Useful info for LRZ
-login and pass were shared. When logged in:
-```bash
-module load python
-conda create -n py38 python=3.8
-source activate py38
-# install your software, e.g. 
-conda install numpy pandas matplotlib seaborn
-#then clone and install scanpy
-git clone https://github.com/theislab/scanpy.git
-cd scanpy
-pip install -e .
-# and install useful scanpy modules
-pip install leidenalg pynndescent
-# and maybe jupyter lab/nb ?
-pip install jupyterlab
-```
-To start jupyter
-```bash
-# make new login setting the port
-ssh -Y lxlogin1.lrz.de -l di82cof -L 6006:localhost:6006
-# then load usual stuff
-module load python
-source activate py38
-jupyter-lab --no-browser --port=6006
-# copy URL in your browser
-```
-## Available projects (to be discussed)
-### Spatial statistics and global tissue context  
-A central goal of spatial transcriptomics is to understand global spatial organization and cellular neighborhood structure. Spatial statistics can give insights on such properties. Tasks include:
-- Select 2-3 spatial datasets
-- Clustering and diff exp analysis
-- Ripley's K stats on clusters
-- Neighborhood enrichment analysis
-- Moran's I and [Spark](https://github.com/xzhoulab/SPARK) spatially variable genes (SVG) selection
-- Compare SVG to DiffExp result
-- Interpret results with biological insights
+This branch contains the workflow and background information to the project 'Image Analysis'.
 
-### Image analysis and segmentation
-10x genomics Visium data comes weith an image alongside gene counts. An important question that can be asked is how morphology relates to gene expression and tissue organization. Tasks include:
-- Select 2-3 spatial datasets (both HnE and Fluorescence)
-- Clustering and diff exp analysis
-- Compute image features and and feature importance wrt cluster assignment
-    - Assess feature importance with different ML/DL models
-    - Build simple self-supervised model and compare embeddings with standard image features
-- Evaluate segmentation strategies and methods in HnE and Fluorescent, methods such
-    - [Cellpose](https://github.com/MouseLand/cellpose)
-    - [Stardist](https://github.com/mpicbg-csbd/stardist)
-- Compare segmentation results to image features and clusters
+## 1. Workflow
+
+The python file 'analysis_and_visualization.py' in the python_files subfolder displays all steps of the workflow.
+
+### 1.1 The Data Set
+ 
+The used data set 'Human Breast Cancer: Whole Transcriptome Analysis' has been taken from the 10x genomics website (https://support.10xgenomics.com/spatial-gene-expression/datasets). 
+It comes with an image alongside gene counts.
+
+### 1.2 Pre-Processing
+
+#### 1.2.1 Basic Filtering
+
+By calculating basic quality contorl metrics, the total number of cell counts, number of expressed genes as well as the fraction of mitochondrial genes can be determined.
+Based on manualy threshold decisions, the data set cell and gene numbers can be reduced by omitting outlier regions.
+
