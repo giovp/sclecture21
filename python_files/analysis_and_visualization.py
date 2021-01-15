@@ -28,6 +28,13 @@ sns.distplot(adata.obs["total_counts"], kde=False, ax=axs[0,0])
 sns.distplot(adata.obs["total_counts"][adata.obs["total_counts"] < 10000], kde=False, bins=40, ax=axs[0,1])
 sns.distplot(adata.obs["n_genes_by_counts"], kde=False, bins=60, ax=axs[1,0])
 sns.distplot(adata.obs["n_genes_by_counts"][adata.obs["n_genes_by_counts"] < 4000], kde=False, bins=60, ax=axs[1,1])
+#plt.show(fig)
+
+# plot the fractional mitochondrial counts per total count
+ax = plt.axes()
+ax.scatter(adata.obs['total_counts'], adata.obs['total_counts_mt'])
+ax.set_xlabel('Total number of counts')
+ax.set_ylabel('Total number of mitochondrial counts')
 
 # determine the (min,max)-thresholds by inspecting the filtering
 cell_thresh_min = 4000
@@ -47,6 +54,36 @@ sc.pp.filter_genes(adata, min_cells=10)
 # normalization of visium counts data to detect highly variable genes
 sc.pp.normalize_total(adata, inplace=True)
 sc.pp.log1p(adata)
-sc.pp.highly_variable_genes(adata, flavor='seurat', n_top_genes=2000
-                            )
+sc.pp.highly_variable_genes(adata, flavor='seurat', n_top_genes=2000)
+
+# manifold embedding and clustering based on transcriptional similarity on different resolutions
+sc.pp.pca(adata)
+sc.pp.neighbors(adata)
+sc.tl.umap(adata)
+for iRes in [1]:#0.25, 0.5, 0.75, 1]:
+    sc.tl.leiden(adata, resolution=iRes, key_added=f'cluster_{iRes}')
+
+    # plot some covariates to check for structure
+    plt.rcParams['figure.figsize'] = (4,4)
+    sc.pl.umap(adata, color=['total_counts', 'n_genes_by_counts', f'cluster_{iRes}'], wspace=0.4)
+
+# visualization in spatial coordinates
+plt.rcParams['figure.figsize'] = (8,8)
+sc.pl.spatial(adata, img_key='hires', color=['total_counts', 'n_genes_by_counts'])
+
+# check for more structure by clustering with the above resolution, but now spatially
+for iRes in [1]:#0.25, 0.5, 0.75, 1]:
+    sc.pl.spatial(adata, img_key='hires', color=f'cluster_{iRes}', size=1.5)
+
+    '''
+    # change the region of interest and the transparency to get a deeper picture of the tissue
+    sc.pl.spatial(adata, img_key='hires', color=f'cluster_{iRes}', size=1.5,
+                  groups=['0', '5'], crop_coord=tuple([1200, 1700, 1900, 1000]), alpha=0.5)
+    '''
+# cluster marker genes by a t-test and plot via a heatmap
+for iRes in [1]:#0.25, 0.5, 0.75, 1]:
+    sc.tl.rank_genes_groups(adata, f'cluster_{iRes}', method='t-test')
+    sc.pl.rank_genes_groups_heatmap(adata, groups='0', n_genes=10, groupby=f'cluster_{iRes}')
+
 a = 4
+
