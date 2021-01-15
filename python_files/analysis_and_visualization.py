@@ -16,13 +16,15 @@ sc.settings.verbosity = 3
 adata = sc.datasets.visium_sge(sample_id='Parent_Visium_Human_BreastCancer')
 adata.var_names_make_unique()
 print(f'Size of data set: n_obs x n_vars = {adata.shape[0]} x {adata.shape[1]}')
+adata.var['mt'] = adata.var_names.str.startswith('MT-')
+print('Amount of mitochondrial cells: ' + str(len(['True' for i in adata.var['mt'] if i != False])))
 
 # calculate standard Quality Control (QC) metrics and update the data set
-sc.pp.calculate_qc_metrics(adata, inplace=True)
+sc.pp.calculate_qc_metrics(adata, qc_vars=['mt'], inplace=True)
 
 # perform some basic filtering for total cell counts and gene counts per cell
 fig, axs = plt.subplots(2, 2, figsize=(15, 4))
-sns.distplot(adata.obs["total_counts"], kde=False, ax=axs[0.0])
+sns.distplot(adata.obs["total_counts"], kde=False, ax=axs[0,0])
 sns.distplot(adata.obs["total_counts"][adata.obs["total_counts"] < 10000], kde=False, bins=40, ax=axs[0,1])
 sns.distplot(adata.obs["n_genes_by_counts"], kde=False, bins=60, ax=axs[1,0])
 sns.distplot(adata.obs["n_genes_by_counts"][adata.obs["n_genes_by_counts"] < 4000], kde=False, bins=60, ax=axs[1,1])
@@ -39,3 +41,12 @@ sc.pp.filter_cells(adata, max_counts=cell_thresh_max)
 adata = adata[adata.obs["pct_counts_mt"] < 20]
 print(f"#cells after MT filter: {adata.n_obs}")
 sc.pp.filter_genes(adata, min_cells=10)
+
+# visualize taken outlier by red vertical line & plot distplot again (?)
+
+# normalization of visium counts data to detect highly variable genes
+sc.pp.normalize_total(adata, inplace=True)
+sc.pp.log1p(adata)
+sc.pp.highly_variable_genes(adata, flavor='seurat', n_top_genes=2000
+                            )
+a = 4
