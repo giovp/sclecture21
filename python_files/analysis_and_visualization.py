@@ -25,11 +25,11 @@ print('Amount of mitochondrial cells: ' + str(len(['True' for i in adata.var['mt
 sc.pp.calculate_qc_metrics(adata, qc_vars=['mt'], inplace=True)
 
 # perform some basic filtering for total cell counts and gene counts per cell
-fig, axs = plt.subplots(2, 2, figsize=(15, 4))
-sns.distplot(adata.obs["total_counts"], kde=False, ax=axs[0,0])
-sns.distplot(adata.obs["total_counts"][adata.obs["total_counts"] < 10000], kde=False, bins=40, ax=axs[0,1])
-sns.distplot(adata.obs["n_genes_by_counts"], kde=False, bins=60, ax=axs[1,0])
-sns.distplot(adata.obs["n_genes_by_counts"][adata.obs["n_genes_by_counts"] < 4000], kde=False, bins=60, ax=axs[1,1])
+fig, axs = plt.subplots(1, 4, figsize=(15, 4))
+sns.distplot(adata.obs["total_counts"], kde=False, ax=axs[0])
+sns.distplot(adata.obs["total_counts"][adata.obs["total_counts"] < 10000], kde=False, bins=40, ax=axs[1])
+sns.distplot(adata.obs["n_genes_by_counts"], kde=False, bins=60, ax=axs[2])
+sns.distplot(adata.obs["n_genes_by_counts"][adata.obs["n_genes_by_counts"] < 4000], kde=False, bins=60, ax=axs[3])
 #plt.show(fig)
 
 # plot the fractional mitochondrial counts per total count
@@ -39,7 +39,7 @@ ax.set_xlabel('Total number of counts')
 ax.set_ylabel('Total number of mitochondrial counts')
 
 # determine the (min,max)-thresholds by inspecting the filtering
-cell_thresh_min = 4000
+cell_thresh_min = 100
 cell_thresh_max = 45000
 gene_thresh_min = 2000
 gene_thresh_max = 8000
@@ -87,8 +87,45 @@ for iRes in [1]:#0.25, 0.5, 0.75, 1]:
     sc.tl.rank_genes_groups(adata, f'cluster_{iRes}', method='t-test')
     sc.pl.rank_genes_groups_heatmap(adata, groups='0', n_genes=10, groupby=f'cluster_{iRes}')
 
+    # plot the specific gene
+    sc.pl.spatial(adata, img_key='hires', color=[f'cluster_{iRes}', ''])
 
 # image resolution reviisited --- actual image has been safed after import
 spatial_data = adata.uns['spatial']['Parent_Visium_Human_BreastCancer']
 a = 4
 
+
+
+
+
+################# more plotting ###############
+# manifold embedding
+ax1 = plt.axes([0.03, 0.1, 0.19, 0.85])
+ax2 = plt.axes([0.03 + 0.24, 0.1, 0.19, 0.85])
+ax3 = plt.axes([0.03 + 2*0.24, 0.1, 0.19, 0.85])
+ax4 = plt.axes([0.03 + 3*0.24, 0.1, 0.19, 0.85])
+sc.pl.umap(adata, color=[f'cluster_0.25'], ax=ax1)
+sc.pl.umap(adata, color=[f'cluster_0.5'], ax=ax2)
+sc.pl.umap(adata, color=[f'cluster_0.75'], ax=ax3)
+sc.pl.umap(adata, color=[f'cluster_1'], ax=ax4)
+ax2.set_ylabel('')
+ax3.set_ylabel('')
+ax4.set_ylabel('')
+
+# clusters
+ax1 = plt.axes([0.03, 0.5, 0.45, 0.45])
+ax2 = plt.axes([0.03 + 0.5, 0.5, 0.45, 0.45])
+ax3 = plt.axes([0.03, 0.03, 0.45, 0.45])
+ax4 = plt.axes([0.03 + 0.5, 0.03, 0.45, 0.45])
+'or'
+ax1 = plt.axes([0.03, 0.1, 0.19, 0.85])
+ax2 = plt.axes([0.03 + 0.24, 0.1, 0.19, 0.85])
+ax3 = plt.axes([0.03 + 2*0.24, 0.1, 0.19, 0.85])
+ax4 = plt.axes([0.03 + 3*0.24, 0.1, 0.19, 0.85])
+sc.pl.spatial(adata, img_key='hires', color=f'cluster_0.25', size=1.5, ax=ax1)
+sc.pl.spatial(adata, img_key='hires', color=f'cluster_0.5', size=1.5, ax=ax2)
+sc.pl.spatial(adata, img_key='hires', color=f'cluster_0.75', size=1.5, ax=ax3)
+sc.pl.spatial(adata, img_key='hires', color=f'cluster_1', size=1.5, ax=ax4)
+ax2.set_ylabel('')
+ax3.set_ylabel('')
+ax4.set_ylabel('')
