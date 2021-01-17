@@ -38,3 +38,7 @@ Again, the manifold can be clustered to detect the underlying structure, but spa
 By taking a specific cluster, one can visualize the expression levels, e.g. of the highest expressed genes.
 Furthermore, a gene with optimal expression in the specific cluster can then recapitulate the spatial structure of the cluster. 
 
+### 1.4 Image Resolution
+
+Directly investigate the image by correctly scaling the spatial coordinates to the image pixels.
+
