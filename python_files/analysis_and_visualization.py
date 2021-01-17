@@ -2,8 +2,10 @@
 
 import scanpy as sc
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import imageio
 
 
 # check all versions included in scanpy
@@ -85,5 +87,8 @@ for iRes in [1]:#0.25, 0.5, 0.75, 1]:
     sc.tl.rank_genes_groups(adata, f'cluster_{iRes}', method='t-test')
     sc.pl.rank_genes_groups_heatmap(adata, groups='0', n_genes=10, groupby=f'cluster_{iRes}')
 
+
+# image resolution reviisited --- actual image has been safed after import
+spatial_data = adata.uns['spatial']['Parent_Visium_Human_BreastCancer']
 a = 4
 
