@@ -25,11 +25,16 @@ print('Amount of mitochondrial cells: ' + str(len(['True' for i in adata.var['mt
 sc.pp.calculate_qc_metrics(adata, qc_vars=['mt'], inplace=True)
 
 # perform some basic filtering for total cell counts and gene counts per cell
-fig, axs = plt.subplots(1, 4, figsize=(15, 4))
+fig, axs = plt.subplots(1, 3, figsize=(15, 4))
 sns.distplot(adata.obs["total_counts"], kde=False, ax=axs[0])
 sns.distplot(adata.obs["total_counts"][adata.obs["total_counts"] < 10000], kde=False, bins=40, ax=axs[1])
-sns.distplot(adata.obs["n_genes_by_counts"], kde=False, bins=60, ax=axs[2])
-sns.distplot(adata.obs["n_genes_by_counts"][adata.obs["n_genes_by_counts"] < 4000], kde=False, bins=60, ax=axs[3])
+sns.distplot(adata.obs["total_counts"][adata.obs["total_counts"] > 40000], kde=False, bins=40, ax=axs[2])
+#plt.show()
+
+fig, axs = plt.subplots(1, 3, figsize=(15, 4))
+sns.distplot(adata.obs["n_genes_by_counts"], kde=False, bins=60, ax=axs[0])
+sns.distplot(adata.obs["n_genes_by_counts"][adata.obs["n_genes_by_counts"] < 2500], kde=False, bins=40, ax=axs[1])
+sns.distplot(adata.obs["n_genes_by_counts"][adata.obs["n_genes_by_counts"] > 7500], kde=False, bins=40, ax=axs[2])
 #plt.show(fig)
 
 # plot the fractional mitochondrial counts per total count
@@ -39,9 +44,9 @@ ax.set_xlabel('Total number of counts')
 ax.set_ylabel('Total number of mitochondrial counts')
 
 # determine the (min,max)-thresholds by inspecting the filtering
-cell_thresh_min = 100
+cell_thresh_min = 100 #4000 #100
 cell_thresh_max = 45000
-gene_thresh_min = 2000
+gene_thresh_min = 2000 #1500 #2000
 gene_thresh_max = 8000
 
 # filter out the outlier cells based on the previously determined thresholds
@@ -82,16 +87,48 @@ for iRes in [1]:#0.25, 0.5, 0.75, 1]:
     sc.pl.spatial(adata, img_key='hires', color=f'cluster_{iRes}', size=1.5,
                   groups=['0', '5'], crop_coord=tuple([1200, 1700, 1900, 1000]), alpha=0.5)
     '''
+
 # cluster marker genes by a t-test and plot via a heatmap
 for iRes in [1]:#0.25, 0.5, 0.75, 1]:
     sc.tl.rank_genes_groups(adata, f'cluster_{iRes}', method='t-test')
     sc.pl.rank_genes_groups_heatmap(adata, groups='0', n_genes=10, groupby=f'cluster_{iRes}')
 
     # plot the specific gene
-    sc.pl.spatial(adata, img_key='hires', color=[f'cluster_{iRes}', ''])
+    sc.pl.spatial(adata, img_key='hires', color=[f'cluster_{iRes}', 'SCGB2A2'])
 
 # image resolution reviisited --- actual image has been safed after import
 spatial_data = adata.uns['spatial']['Parent_Visium_Human_BreastCancer']
+spot_size = spatial_data['scalefactors']['spot_diameter_fullres']*0.5
+img = tif
+crop_coord = np.asarray([5000, 7500, 15000, 20000])
+img_coord = (
+    *crop_coord[:2],
+    *np.ceil(img.shape[0] - crop_coord[2:4]).astype(int),
+)
+fig, ax = plt.subplots()
+from matplotlib.patches import Circle
+from matplotlib.collections import PatchCollection
+
+def circles(x, y, s, ax, marker=None, c="b", vmin=None, vmax=None, **kwargs):
+    """"""
+    # You can set `facecolor` with an array for each patch,
+    # while you can only set `facecolors` with a value for all.
+    zipped = np.broadcast(x, y, s)
+    patches = [Circle((x_, y_), s_) for x_, y_, s_ in zipped]
+    collection = PatchCollection(patches, **kwargs)
+    if isinstance(c, np.ndarray) and np.issubdtype(c.dtype, np.number):
+        collection.set_array(c)
+        collection.set_clim(vmin, vmax)
+    else:
+        collection.set_facecolor(c)
+    ax.add_collection(collection)
+    return collection
+
+circles(xcoord, ycoord, s=spot_size, ax=ax)
+plt.imshow(tif)
+ax.set_xlim(img_coord[0], img_coord[1])
+ax.set_ylim(img_coord[3], img_coord[2])
+
 a = 4
 
 
