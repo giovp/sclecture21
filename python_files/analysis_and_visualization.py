@@ -7,8 +7,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import imageio
+import tqdm
 
 
+'''
 ################# pre-processing ###############
 # check all versions included in scanpy
 # set some figure markers
@@ -130,14 +132,13 @@ circles(xcoord, ycoord, s=spot_size, ax=ax)
 plt.imshow(tif)
 ax.set_xlim(img_coord[0], img_coord[1])
 ax.set_ylim(img_coord[3], img_coord[2])
-
+'''
 
 
 
 
 ################# image feature ###############
 # read in the data set from 10x genomics as well as the large tif image
-adata = sc.datasets.visium_sge(sample_id='Parent_Visium_Human_BreastCancer', include_hires_tiff=True)
 img = sq.im.ImageContainer('./data/Parent_Visium_Human_BreastCancer/image.tif')
 adata = sc.datasets.visium_sge(sample_id='Parent_Visium_Human_BreastCancer')
 adata.var_names_make_unique()
@@ -160,4 +161,35 @@ for feature_name, cur_params in tqdm.tqdm(params.items()):
     # features will be saved in `adata.obsm[feature_name]`
     sq.im.calculate_image_features(adata, img, key_added=feature_name, n_jobs=4, **cur_params)
 
+# add all data together
+# fill nans
+adata.obsm['features_orig'].fillna(value=0, inplace=True)
+# combine features in one dataframe
+adata.obsm['features'] = pd.concat([adata.obsm[f] for f in params.keys()], axis='columns')
+# make sure that we have no duplicated feature names in the combined table
+adata.obsm['features'].columns = ad.utils.make_index_unique(adata.obsm['features'].columns)
 
+
+# helper function returning a clustering
+def cluster_features(features, like=None):
+    """Calculate leiden clustering of features.
+
+    Specify filter of features using `like`.
+    """
+    # filter features
+    if like is not None:
+        features = features.filter(like=like)
+    # create temporary adata to calculate the clustering
+    adata = ad.AnnData(features)
+    # important - feature values are not scaled, so need to scale them before PCA
+    # interesting analysis: what scaling works best? use e.g. clusters in gexp as ground truth?
+    sc.pp.scale(adata)
+    # calculate leiden clustering
+    sc.pp.pca(adata, n_comps=min(10, features.shape[1] - 1))
+    sc.pp.neighbors(adata)
+    sc.tl.leiden(adata)
+
+    return adata.obs['leiden']
+
+
+adata.obs['features_cluster'] = cluster_features(adata.obsm['features'])
