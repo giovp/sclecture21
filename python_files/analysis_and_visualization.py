@@ -1,6 +1,7 @@
 # file for analysing spatial transcriptomic data of human breast cancer, whole transcriptome analysis
 
 import scanpy as sc
+import squidpy as sq
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,6 +9,7 @@ import seaborn as sns
 import imageio
 
 
+################# pre-processing ###############
 # check all versions included in scanpy
 # set some figure markers
 sc.logging.print_versions()
@@ -82,11 +84,11 @@ sc.pl.spatial(adata, img_key='hires', color=['total_counts', 'n_genes_by_counts'
 for iRes in [1]:#0.25, 0.5, 0.75, 1]:
     sc.pl.spatial(adata, img_key='hires', color=f'cluster_{iRes}', size=1.5)
 
-    '''
+
     # change the region of interest and the transparency to get a deeper picture of the tissue
     sc.pl.spatial(adata, img_key='hires', color=f'cluster_{iRes}', size=1.5,
                   groups=['0', '5'], crop_coord=tuple([1200, 1700, 1900, 1000]), alpha=0.5)
-    '''
+
 
 # cluster marker genes by a t-test and plot via a heatmap
 for iRes in [1]:#0.25, 0.5, 0.75, 1]:
@@ -129,40 +131,33 @@ plt.imshow(tif)
 ax.set_xlim(img_coord[0], img_coord[1])
 ax.set_ylim(img_coord[3], img_coord[2])
 
-a = 4
 
 
 
 
+################# image feature ###############
+# read in the data set from 10x genomics as well as the large tif image
+adata = sc.datasets.visium_sge(sample_id='Parent_Visium_Human_BreastCancer', include_hires_tiff=True)
+img = sq.im.ImageContainer('./data/Parent_Visium_Human_BreastCancer/image.tif')
+adata = sc.datasets.visium_sge(sample_id='Parent_Visium_Human_BreastCancer')
+adata.var_names_make_unique()
 
-################# more plotting ###############
-# manifold embedding
-ax1 = plt.axes([0.03, 0.1, 0.19, 0.85])
-ax2 = plt.axes([0.03 + 0.24, 0.1, 0.19, 0.85])
-ax3 = plt.axes([0.03 + 2*0.24, 0.1, 0.19, 0.85])
-ax4 = plt.axes([0.03 + 3*0.24, 0.1, 0.19, 0.85])
-sc.pl.umap(adata, color=[f'cluster_0.25'], ax=ax1)
-sc.pl.umap(adata, color=[f'cluster_0.5'], ax=ax2)
-sc.pl.umap(adata, color=[f'cluster_0.75'], ax=ax3)
-sc.pl.umap(adata, color=[f'cluster_1'], ax=ax4)
-ax2.set_ylabel('')
-ax3.set_ylabel('')
-ax4.set_ylabel('')
+# define different feature calculation combinations
+params = {
+    # all features, corresponding only to tissue underneath spot
+    'features_orig':
+    {'features': 'summary', 'size': 1, 'scale': 1.0, 'mask_circle': True},
+    # summary and histogram features with a bit more context, original resolution
+    'features_context':
+    {'features': 'summary', 'size': 2, 'scale': 1.0},
+    # summary and histogram features with more context and at lower resolution
+    'features_lowres' :
+    {'features': 'summary', 'size': 4, 'scale': 0.25}
+}
 
-# clusters
-ax1 = plt.axes([0.03, 0.5, 0.45, 0.45])
-ax2 = plt.axes([0.03 + 0.5, 0.5, 0.45, 0.45])
-ax3 = plt.axes([0.03, 0.03, 0.45, 0.45])
-ax4 = plt.axes([0.03 + 0.5, 0.03, 0.45, 0.45])
-'or'
-ax1 = plt.axes([0.03, 0.1, 0.19, 0.85])
-ax2 = plt.axes([0.03 + 0.24, 0.1, 0.19, 0.85])
-ax3 = plt.axes([0.03 + 2*0.24, 0.1, 0.19, 0.85])
-ax4 = plt.axes([0.03 + 3*0.24, 0.1, 0.19, 0.85])
-sc.pl.spatial(adata, img_key='hires', color=f'cluster_0.25', size=1.5, ax=ax1)
-sc.pl.spatial(adata, img_key='hires', color=f'cluster_0.5', size=1.5, ax=ax2)
-sc.pl.spatial(adata, img_key='hires', color=f'cluster_0.75', size=1.5, ax=ax3)
-sc.pl.spatial(adata, img_key='hires', color=f'cluster_1', size=1.5, ax=ax4)
-ax2.set_ylabel('')
-ax3.set_ylabel('')
-ax4.set_ylabel('')
+# extract features with the different parameters in a loop
+for feature_name, cur_params in tqdm.tqdm(params.items()):
+    # features will be saved in `adata.obsm[feature_name]`
+    sq.im.calculate_image_features(adata, img, key_added=feature_name, n_jobs=4, **cur_params)
+
+
