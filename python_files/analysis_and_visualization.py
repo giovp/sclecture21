@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import imageio
 import tqdm
+import anndata as ad
 
 
 '''
@@ -88,8 +89,8 @@ for iRes in [1]:#0.25, 0.5, 0.75, 1]:
 
 
     # change the region of interest and the transparency to get a deeper picture of the tissue
-    sc.pl.spatial(adata, img_key='hires', color=f'cluster_{iRes}', size=1.5,
-                  groups=['0', '5'], crop_coord=tuple([1200, 1700, 1900, 1000]), alpha=0.5)
+    #sc.pl.spatial(adata, img_key='hires', color=f'cluster_{iRes}', size=1.5,
+    #              groups=['0', '5'], crop_coord=tuple([1200, 1700, 1900, 1000]), alpha=0.5)
 
 
 # cluster marker genes by a t-test and plot via a heatmap
@@ -100,7 +101,7 @@ for iRes in [1]:#0.25, 0.5, 0.75, 1]:
     # plot the specific gene
     sc.pl.spatial(adata, img_key='hires', color=[f'cluster_{iRes}', 'SCGB2A2'])
 
-# image resolution reviisited --- actual image has been safed after import
+# image resolution reviisited --- actual image has been saved after import
 spatial_data = adata.uns['spatial']['Parent_Visium_Human_BreastCancer']
 spot_size = spatial_data['scalefactors']['spot_diameter_fullres']*0.5
 img = tif
@@ -136,11 +137,11 @@ ax.set_ylim(img_coord[3], img_coord[2])
 
 
 
-
 ################# image feature ###############
 # read in the data set from 10x genomics as well as the large tif image
 img = sq.im.ImageContainer('./data/Parent_Visium_Human_BreastCancer/image.tif')
 adata = sc.datasets.visium_sge(sample_id='Parent_Visium_Human_BreastCancer')
+#adata = sc.read('./data/Parent_Visium_Human_BreastCancer')
 adata.var_names_make_unique()
 
 # define different feature calculation combinations
@@ -193,3 +194,6 @@ def cluster_features(features, like=None):
 
 
 adata.obs['features_cluster'] = cluster_features(adata.obsm['features'])
+
+# plot proportions of clusters in each annotated like a confusion matrix using seaborn
+
