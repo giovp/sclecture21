@@ -186,8 +186,11 @@ def cluster_features(features, like=None):
     # interesting analysis: what scaling works best? use e.g. clusters in gexp as ground truth?
     sc.pp.scale(adata)
     # calculate leiden clustering
+    # compute principle component analysis coordinates, loadings and variance composition
     sc.pp.pca(adata, n_comps=min(10, features.shape[1] - 1))
+    # compute a neighborhood graph of observations
     sc.pp.neighbors(adata)
+    # cluster cells into subgroups  using the Leiden algorithm
     sc.tl.leiden(adata)
 
     return adata.obs['leiden']
@@ -196,4 +199,5 @@ def cluster_features(features, like=None):
 adata.obs['features_cluster'] = cluster_features(adata.obsm['features'])
 
 # plot proportions of clusters in each annotated like a confusion matrix using seaborn
-
+map = sns.clustermap(adata.obsm['features_lowres'])
+map = sns.clustermap(adata)
