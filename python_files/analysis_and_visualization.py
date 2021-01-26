@@ -11,7 +11,7 @@ import tqdm
 import anndata as ad
 
 
-'''
+
 ################# pre-processing ###############
 # check all versions included in scanpy
 # set some figure markers
@@ -133,7 +133,7 @@ circles(xcoord, ycoord, s=spot_size, ax=ax)
 plt.imshow(tif)
 ax.set_xlim(img_coord[0], img_coord[1])
 ax.set_ylim(img_coord[3], img_coord[2])
-'''
+
 
 
 
@@ -191,13 +191,13 @@ def cluster_features(features, like=None):
     # compute a neighborhood graph of observations
     sc.pp.neighbors(adata)
     # cluster cells into subgroups  using the Leiden algorithm
-    sc.tl.leiden(adata)
+    sc.tl.leiden(adata, key_added='annotation2')
 
-    return adata.obs['leiden']
+    return adata.obs['annotatio2'] #'leiden'
 
 
 adata.obs['features_cluster'] = cluster_features(adata.obsm['features'])
 
 # plot proportions of clusters in each annotated like a confusion matrix using seaborn
-map = sns.clustermap(adata.obsm['features_lowres'])
+part_map = sns.clustermap(adata.obsm['features_lowres'])
 map = sns.clustermap(adata)
