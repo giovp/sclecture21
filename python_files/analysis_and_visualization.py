@@ -11,7 +11,7 @@ import tqdm
 import anndata as ad
 
 
-
+'''
 ################# pre-processing ###############
 # check all versions included in scanpy
 # set some figure markers
@@ -133,7 +133,7 @@ circles(xcoord, ycoord, s=spot_size, ax=ax)
 plt.imshow(tif)
 ax.set_xlim(img_coord[0], img_coord[1])
 ax.set_ylim(img_coord[3], img_coord[2])
-
+'''
 
 
 
@@ -144,6 +144,36 @@ adata = sc.datasets.visium_sge(sample_id='Parent_Visium_Human_BreastCancer')
 #adata = sc.read('./data/Parent_Visium_Human_BreastCancer')
 adata.var_names_make_unique()
 
+####### calculate the gene expression clusters
+adata.var['mt'] = adata.var_names.str.startswith('MT-')
+print('Amount of mitochondrial cells: ' + str(len(['True' for i in adata.var['mt'] if i != False])))
+
+# calculate standard Quality Control (QC) metrics and update the data set
+sc.pp.calculate_qc_metrics(adata, qc_vars=['mt'], inplace=True)
+cell_thresh_min = 100 #4000 #100
+cell_thresh_max = 45000
+
+# some filtering
+sc.pp.filter_cells(adata, min_counts=cell_thresh_min)
+sc.pp.filter_cells(adata, max_counts=cell_thresh_max)
+adata = adata[adata.obs["pct_counts_mt"] < 20]
+print(f"#cells after MT filter: {adata.n_obs}")
+sc.pp.filter_genes(adata, min_cells=10)
+
+# normalization of visium counts data to detect highly variable genes
+sc.pp.normalize_total(adata, inplace=True)
+sc.pp.log1p(adata)
+sc.pp.highly_variable_genes(adata, flavor='seurat', n_top_genes=2000)
+
+# manifold embedding and clustering based on transcriptional similarity on different resolutions
+sc.pp.pca(adata)
+sc.pp.neighbors(adata)
+sc.tl.umap(adata)
+for iRes in [1]:#0.25, 0.5, 0.75, 1]:
+    sc.tl.leiden(adata, resolution=iRes, key_added=f'cluster_{iRes}')
+
+
+####### calculate the image feature clusters
 # define different feature calculation combinations
 params = {
     # all features, corresponding only to tissue underneath spot
@@ -198,6 +228,52 @@ def cluster_features(features, like=None):
 
 adata.obs['features_cluster'] = cluster_features(adata.obsm['features'])
 
-# plot proportions of clusters in each annotated like a confusion matrix using seaborn
+###### plot proportions of clusters in each annotated as a confusion matrix
 part_map = sns.clustermap(adata.obsm['features_lowres'])
 map = sns.clustermap(adata)
+
+adata_3 = adata
+
+# get all labels for ge cluster & size of all individual clusters
+cluster_ge = []
+for iCluster in range(0, 10):
+    cluster_save = []
+    for iRow in range(0, len(adata_3['labels'])):
+        if adata_3['gene_expr_cluster'][iRow] == str(iCluster):
+            cluster_save.append(adata_3['labels'][iRow])
+    cluster_ge.append(cluster_save)
+
+for iCluster in range(0, len(cluster_ge)):
+    print(len(cluster_ge[iCluster]))
+
+# get all labels for if cluster & size of all individual clusters
+cluster_if = []
+for iCluster in range(0, 16):
+    cluster_save = []
+    for iRow in range(0, len(adata_3['labels'])):
+        if adata_3['features_cluster'][iRow] == str(iCluster):
+            cluster_save.append(adata_3['labels'][iRow])
+    cluster_if.append(cluster_save)
+
+for iCluster in range(0, len(cluster_if)):
+    print(len(cluster_if[iCluster]))
+
+# compare those labels with other cluster
+percentages = []
+for iCluster_ge in range(0, len(cluster_ge)):
+    clusters = [[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]]
+    for iLabel_ge in range(0, len(cluster_ge[iCluster_ge])):
+        for iCluster_if in range(0, len(cluster_if)):
+            if cluster_ge[iCluster_ge][iLabel_ge] in cluster_if[iCluster_if]:
+                clusters[iCluster_if].append(1)
+    per = []
+    for cluster in clusters:
+        per.append(len(cluster)/len(cluster_ge[iCluster_ge]))
+    percentages.append(per)
+
+# create data frame
+index_column = ['if_0','if_1','if_2','if_3','if_4','if_5','if_6','if_7','if_8','if_9','if_10','if_11','if_12','if_13','if_14','if_15']
+df = pd.DataFrame(columns=['ge_0','ge_1','ge_2','ge_3','ge_4','ge_5','ge_6','ge_7','ge_8','ge_9'], data=[])
+for iCol in range(0, np.shape(df)[1]):
+    df[f'ge_{iCol}'] = pd.Series(percentages[iCol])
+df = df.set_index('new_index')
