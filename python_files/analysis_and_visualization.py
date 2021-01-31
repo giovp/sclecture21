@@ -11,7 +11,6 @@ import tqdm
 import anndata as ad
 
 
-'''
 ################# pre-processing ###############
 # check all versions included in scanpy
 # set some figure markers
@@ -96,11 +95,27 @@ for iRes in [1]:#0.25, 0.5, 0.75, 1]:
 # cluster marker genes by a t-test and plot via a heatmap
 for iRes in [1]:#0.25, 0.5, 0.75, 1]:
     sc.tl.rank_genes_groups(adata, f'cluster_{iRes}', method='t-test')
-    sc.pl.rank_genes_groups_heatmap(adata, groups='0', n_genes=10, groupby=f'cluster_{iRes}')
+    sc.pl.rank_genes_groups_heatmap(adata, n_genes=10, groupby=f'cluster_{iRes}')
+    sc.pl.rank_genes_groups_dotplot(adata, n_genes=10, groupby=f'cluster_{iRes}')
+    sc.pl.rank_genes_groups_matrixplot(adata, n_genes=10, groupby=f'cluster_{iRes}')
 
     # plot the specific gene
-    sc.pl.spatial(adata, img_key='hires', color=[f'cluster_{iRes}', 'SCGB2A2'])
+    #sc.pl.spatial(adata, img_key='hires', color=[f'cluster_{iRes}', 'SCGB2A2'])
 
+
+# cluster marker genes by a wilcoxin test and plot via a heatmap
+for iRes in [1]:  # 0.25, 0.5, 0.75, 1]:
+    sc.tl.rank_genes_groups(adata, f'cluster_{iRes}', method='wilcoxon')
+    sc.pl.rank_genes_groups_heatmap(adata, n_genes=10, groupby=f'cluster_{iRes}')
+    sc.pl.rank_genes_groups_dotplot(adata, n_genes=10, groupby=f'cluster_{iRes}')
+    sc.pl.rank_genes_groups_matrixplot(adata, n_genes=10, groupby=f'cluster_{iRes}')
+
+    # plot the specific gene
+    #sc.pl.spatial(adata, img_key='hires', color=[f'cluster_{iRes}_wilcoxon', 'SCGB2A2'])
+
+
+
+'''
 # image resolution reviisited --- actual image has been saved after import
 spatial_data = adata.uns['spatial']['Parent_Visium_Human_BreastCancer']
 spot_size = spatial_data['scalefactors']['spot_diameter_fullres']*0.5
