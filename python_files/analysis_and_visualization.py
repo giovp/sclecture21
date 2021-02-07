@@ -391,3 +391,31 @@ def heatmap_percentages_ge_in_if(adata):
     for iCol in range(0, np.shape(df)[1]):
         df[f'ge_{iCol}'] = pd.Series(percentages[iCol])
     df = df.set_index('new_index')
+
+    return df
+
+
+
+
+################# gene marker visualization by different statistical ranking tests ###############
+def visualize_specific_genes():
+    # look for specific genes which correlate heavily with cancer
+    # decision based on papers 'Cancer genes in lung cancer' and
+    # 'Identification of cancer driver genes based on nucleotide context'
+    list_of_specific_cancer_related_genes = ['PTEN', 'PIK3CA', 'BRAF', 'NRAS', 'KRAS', 'EGFR',
+                                             'TP53', 'MET', 'LKB1', 'ALK', 'RET', 'ROS1',
+                                             'RAC1', 'CTNNB1', 'CDKN2A', 'IDH1', 'NOTCH1']
+    # get data
+    adata = pre_processing()
+
+    # cluster marker genes by a t-test and wilcoxon test
+    for Test in ['t-test', 'wilcoxon']:
+        for iRes in [1]:  # 0.25, 0.5, 0.75, 1]:
+            sc.tl.rank_genes_groups(adata, f'cluster_{iRes}', method=Test)
+
+            # plot the specific gene, if it is even expressed
+            for specific_gene in list_of_specific_cancer_related_genes:
+                if specific_gene in adata.var_names:
+                    sc.pl.spatial(adata, img_key='hires', color=[f'cluster_{iRes}', specific_gene])
+
+    return adata
