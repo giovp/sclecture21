@@ -9,6 +9,7 @@ import seaborn as sns
 import imageio
 import tqdm
 import anndata as ad
+import sys
 
 
 ################# pre-processing & basic visualizations ###############
@@ -166,7 +167,7 @@ def zoom_into_tissue(adata):
 
 
 ################# calculate the image feature clusters ###############
-def image_feature_spcae(adata_2):
+def image_feature_spcae():
     # read in the data set from 10x genomics as well as the large tif image
     img = sq.im.ImageContainer('./data/Parent_Visium_Human_BreastCancer/image.tif')
     adata_2 = sc.datasets.visium_sge(sample_id='Parent_Visium_Human_BreastCancer')
@@ -225,13 +226,12 @@ def image_feature_spcae(adata_2):
     adata_2.obs['features_cluster'] = cluster_features(adata_2.obsm['features'])
 
     # plot umap image feature spcae
-    sc.tl.umap(adata_2)
     for iRes in [1]:#0.25, 0.5, 0.75, 1]:
         sc.tl.leiden(adata_2, resolution=iRes, key_added=f'cluster_{iRes}')
 
         # plot some covariates to check for structure
         plt.rcParams['figure.figsize'] = (4, 4)
-        sc.pl.umap(adata_2, color=['total_counts', 'n_genes_by_counts', f'cluster_{iRes}'], wspace=0.4)
+        sc.pl.umap(adata_2, color=f'cluster_{iRes}')
 
     return adata_2
 
@@ -346,15 +346,19 @@ def if_clusters_in_ge_space(adata):
 
 
 ################# plot heatmap with percentages of ge clusters in if clusters ###############
-def heatmap_percentages_ge_in_if(adata):
-    adata_3 = adata
+def heatmap_percentages_ge_if(adata, cluster_direction_factor):
+    # cluster_direction_factor identifies the direction the heat map is plotted,
+    # e.g. if or ge on x-axis
+    # cluster.direction_factor = 'ge_if' xor cluster.direction_factor = 'if_ge' [type: str]
+
+    df = adata.obs
     # get all labels for ge cluster & size of all individual clusters
     cluster_ge = []
     for iCluster in range(0, 10):
         cluster_save = []
-        for iRow in range(0, len(adata_3['labels'])):
-            if adata_3['gene_expr_cluster'][iRow] == str(iCluster):
-                cluster_save.append(adata_3['labels'][iRow])
+        for iRow in range(0, len(df.index)):
+            if df['gene_expr_cluster'][iRow] == str(iCluster):
+                cluster_save.append(df.index[iRow])
         cluster_ge.append(cluster_save)
 
     for iCluster in range(0, len(cluster_ge)):
@@ -364,47 +368,77 @@ def heatmap_percentages_ge_in_if(adata):
     cluster_if = []
     for iCluster in range(0, 16):
         cluster_save = []
-        for iRow in range(0, len(adata_3['labels'])):
-            if adata_3['features_cluster'][iRow] == str(iCluster):
-                cluster_save.append(adata_3['labels'][iRow])
+        for iRow in range(0, len(df.index)):
+            if df['features_cluster'][iRow] == str(iCluster):
+                cluster_save.append(df.index[iRow])
         cluster_if.append(cluster_save)
 
     for iCluster in range(0, len(cluster_if)):
         print(len(cluster_if[iCluster]))
 
-    # compare those labels with other cluster
-    percentages = []
-    for iCluster_ge in range(0, len(cluster_ge)):
-        clusters = [[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]]
-        for iLabel_ge in range(0, len(cluster_ge[iCluster_ge])):
-            for iCluster_if in range(0, len(cluster_if)):
-                if cluster_ge[iCluster_ge][iLabel_ge] in cluster_if[iCluster_if]:
-                    clusters[iCluster_if].append(1)
-        per = []
-        for cluster in clusters:
-            per.append(len(cluster)/len(cluster_ge[iCluster_ge]))
-        percentages.append(per)
+    df_2 = calculate_heatmap_percentages(cluster_ge, cluster_if, cluster_direction_factor)
 
-    # create data frame
-    index_column = ['if_0','if_1','if_2','if_3','if_4','if_5','if_6','if_7','if_8','if_9','if_10','if_11','if_12','if_13','if_14','if_15']
-    df = pd.DataFrame(columns=['ge_0','ge_1','ge_2','ge_3','ge_4','ge_5','ge_6','ge_7','ge_8','ge_9'], data=[])
-    for iCol in range(0, np.shape(df)[1]):
-        df[f'ge_{iCol}'] = pd.Series(percentages[iCol])
-    df = df.set_index('new_index')
-
-    return df
+    return df_2
 
 
+def calculate_heatmap_percentages(cluster_ge, cluster_if, cluster_direction_factor):
+    if cluster_direction_factor == 'ge_if':
+        # compare those labels with other cluster
+        percentages = []
+        for iCluster_ge in range(0, len(cluster_ge)):
+            clusters = [[], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []]
+            for iLabel_ge in range(0, len(cluster_ge[iCluster_ge])):
+                for iCluster_if in range(0, len(cluster_if)):
+                    if cluster_ge[iCluster_ge][iLabel_ge] in cluster_if[iCluster_if]:
+                        clusters[iCluster_if].append(1)
+            per = []
+            for cluster in clusters:
+                per.append(len(cluster) / len(cluster_ge[iCluster_ge]))
+            percentages.append(per)
+
+        # create data frame
+        index_column = ['if_0', 'if_1', 'if_2', 'if_3', 'if_4', 'if_5', 'if_6', 'if_7', 'if_8', 'if_9', 'if_10', 'if_11',
+                        'if_12', 'if_13', 'if_14', 'if_15']
+        df_2 = pd.DataFrame(columns=['ge_0', 'ge_1', 'ge_2', 'ge_3', 'ge_4', 'ge_5', 'ge_6', 'ge_7', 'ge_8', 'ge_9'],
+                            data=[])
+        for iCol in range(0, np.shape(df_2)[1]):
+            df_2[f'ge_{iCol}'] = pd.Series(percentages[iCol])
+        df_2['new_index'] = index_column
+        df_2 = df_2.set_index('new_index')
+
+    elif cluster_direction_factor == 'if_ge':
+        # compare those labels with other cluster
+        percentages = []
+        for iCluster_if in range(0, len(cluster_if)):
+            clusters = [[], [], [], [], [], [], [], [], [], []]
+            for iLabel_if in range(0, len(cluster_if[iCluster_if])):
+                for iCluster_ge in range(0, len(cluster_ge)):
+                    if cluster_if[iCluster_if][iLabel_if] in cluster_ge[iCluster_ge]:
+                        clusters[iCluster_ge].append(1)
+            per = []
+            for cluster in clusters:
+                per.append(len(cluster) / len(cluster_if[iCluster_if]))
+            percentages.append(per)
+    else:
+        print('cluster_direction_factor does not have one of the correct input arguments!')
+        sys.exit()
+
+    # plot heatmap with values
+    sns.heatmap(df_2, annot=True)
+
+    return df_2
 
 
 ################# gene marker visualization by different statistical ranking tests ###############
 def visualize_specific_genes():
     # look for specific genes which correlate heavily with cancer
-    # decision based on papers 'Cancer genes in lung cancer' and
+    # decision based on papers 'identifying driver genes involving gene dysregulated expression' and
     # 'Identification of cancer driver genes based on nucleotide context'
     list_of_specific_cancer_related_genes = ['PTEN', 'PIK3CA', 'BRAF', 'NRAS', 'KRAS', 'EGFR',
-                                             'TP53', 'MET', 'LKB1', 'ALK', 'RET', 'ROS1',
-                                             'RAC1', 'CTNNB1', 'CDKN2A', 'IDH1', 'NOTCH1']
+                                             'TP53', 'KMT2D', 'KDM6A', 'ARIDA1', 'CREBBP',
+                                             'GTF2I', 'ZFHX3', 'NFE2L2',
+                                             'MAP3K1', 'GATA3', 'CDH1', 'ERBB2', 'PTEN', 'BRCA1',
+                                             ]#'MET', 'LKB1', 'ALK', 'RET', 'ROS1','RAC1', 'CTNNB1', 'CDKN2A', 'IDH1', 'NOTCH1']
     # get data
     adata = pre_processing()
 
@@ -419,3 +453,6 @@ def visualize_specific_genes():
                     sc.pl.spatial(adata, img_key='hires', color=[f'cluster_{iRes}', specific_gene])
 
     return adata
+
+
+adata = image_feature_spcae()
