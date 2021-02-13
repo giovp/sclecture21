@@ -199,48 +199,37 @@ def image_feature_spcae():
     # make sure that we have no duplicated feature names in the combined table
     adata_2.obsm['features'].columns = ad.utils.make_index_unique(adata_2.obsm['features'].columns)
 
-    # helper function returning a clustering
-    def cluster_features(features, like=None):
-        """Calculate leiden clustering of features.
-
-        Specify filter of features using `like`.
-        """
-        # filter features
-        if like is not None:
-            features = features.filter(like=like)
-        # create temporary adata_2 to calculate the clustering
-        adata_2 = ad.AnnData(features)
-        # important - feature values are not scaled, so need to scale them before PCA
-        # interesting analysis: what scaling works best? use e.g. clusters in gexp as ground truth?
-        sc.pp.scale(adata_2)
-        # calculate leiden clustering
-        # compute principle component analysis coordinates, loadings and variance composition
-        sc.pp.pca(adata_2, n_comps=min(10, features.shape[1] - 1))
-        # compute a neighborhood graph of observations
-        sc.pp.neighbors(adata_2)
-        # cluster cells into subgroups  using the Leiden algorithm
-        sc.tl.leiden(adata_2, key_added='annotation2')
-
-        return adata_2.obs['annotation2'] #'leiden'
-
-    adata_2.obs['features_cluster'] = cluster_features(adata_2.obsm['features'])
-
-    # plot umap image feature spcae
+    # get the umap + leiden analysis for the features
+    features = adata_2.obsm['features']
+    # create temporary adata to calculate the clustering
+    adata = ad.AnnData(features)
+    # important - feature values are not scaled, so need to scale them before PCA
+    # interesting analysis: what scaling works best? use e.g. clusters in gexp as ground truth?
+    sc.pp.scale(adata)
+    # calculate leiden clustering
+    # compute principle component analysis coordinates, loadings and variance composition
+    sc.pp.pca(adata, n_comps=min(10, features.shape[1] - 1))
+    # compute a neighborhood graph of observations
+    sc.pp.neighbors(adata)
+    # compute umap
+    sc.tl.umap(adata)
+    # cluster cells into subgroups using the Leiden algorithm and\
+    # plot umap image feature space
     for iRes in [1]:#0.25, 0.5, 0.75, 1]:
-        sc.tl.leiden(adata_2, resolution=iRes, key_added=f'cluster_{iRes}')
+        sc.tl.leiden(adata, resolution=iRes, key_added=f'cluster_{iRes}')
 
         # plot some covariates to check for structure
         plt.rcParams['figure.figsize'] = (4, 4)
-        sc.pl.umap(adata_2, color=f'cluster_{iRes}')
+        sc.pl.umap(adata, color=f'cluster_{iRes}')
 
-    return adata_2
+    return adata
 
 
 
 
 ################# calculate the image feature clusters in gene expression space ###############
 ################# this will give a nice comparison to the heatmap 'heatmap_percentages_ge_in_if' ###############
-def if_clusters_in_ge_space(adata):
+def if_clusters_in_ge_space():
     # read in the data set from 10x genomics as well as the large tif image
     img = sq.im.ImageContainer('./data/Parent_Visium_Human_BreastCancer/image.tif')
     adata = sc.datasets.visium_sge(sample_id='Parent_Visium_Human_BreastCancer')
@@ -455,4 +444,4 @@ def visualize_specific_genes():
     return adata
 
 
-adata = image_feature_spcae()
+adata = if_clusters_in_ge_space()
