@@ -260,12 +260,11 @@ def if_clusters_in_ge_space():
     sc.pp.pca(adata)
     sc.pp.neighbors(adata)
     sc.tl.umap(adata)
-    for iRes in [1]:#0.25, 0.5, 0.75, 1]:
-        sc.tl.leiden(adata, resolution=iRes, key_added=f'gene_expr_cluster_{iRes}')
+    sc.tl.leiden(adata, key_added=f'gene_expr_cluster')
 
-        # plot some covariates to check for structure
-        plt.rcParams['figure.figsize'] = (4, 4)
-        sc.pl.umap(adata, color=['total_counts', 'n_genes_by_counts', f'gene_expr_cluster_{iRes}'], wspace=0.4)
+    # plot some covariates to check for structure
+    plt.rcParams['figure.figsize'] = (4, 4)
+    sc.pl.umap(adata, color=['total_counts', 'n_genes_by_counts', 'gene_expr_cluster'], wspace=0.4)
 
     ####### calculate the image feature clusters
     # define different feature calculation combinations
@@ -314,20 +313,115 @@ def if_clusters_in_ge_space():
         # compute a neighborhood graph of observations
         sc.pp.neighbors(adata)
         # cluster cells into subgroups  using the Leiden algorithm
-        sc.tl.leiden(adata, key_added='annotation2')
+        sc.tl.leiden(adata, key_added='leiden')
 
-        return adata.obs['annotation2'] #'leiden' if clusters
+        return adata.obs['leiden']
 
     adata.obs['features_cluster'] = cluster_features(adata.obsm['features'])
 
-    # plot umap image feature spcae
-    sc.tl.umap(adata)
-    for iRes in [1]:#0.25, 0.5, 0.75, 1]:
-        sc.tl.leiden(adata, resolution=iRes, key_added=f'cluster_{iRes}')
+    # plot umap image feature clusters in gene expression space
+    plt.rcParams['figure.figsize'] = (4, 4)
+    sc.pl.umap(adata, color=['total_counts', 'n_genes_by_counts', 'features_cluster'])
 
-        # plot some covariates to check for structure
-        plt.rcParams['figure.figsize'] = (4, 4)
-        sc.pl.umap(adata, color=['total_counts', 'n_genes_by_counts', f'cluster_{iRes}'], wspace=0.4)
+    # plot the spatial cluster map
+    plt.rcParams['figure.figsize'] = (8, 8)
+    sc.pl.spatial(adata, img_key='hires', color='features_cluster', size=1.5)
+
+    return adata
+
+
+
+
+################# calculate the gene expression clusters in image feature space ###############
+################# this will give a nice comparison to the heatmap 'heatmap_percentages_if_in_ge' ###############
+def if_clusters_in_ge_space():
+    # read in the data set from 10x genomics as well as the large tif image
+    img = sq.im.ImageContainer('./data/Parent_Visium_Human_BreastCancer/image.tif')
+    adata = sc.datasets.visium_sge(sample_id='Parent_Visium_Human_BreastCancer')
+    adata.var_names_make_unique()
+
+    ####### calculate the image feature clusters
+    # define different feature calculation combinations
+    params = {
+        # all features, corresponding only to tissue underneath spot
+        'features_orig':
+        {'features': 'summary', 'size': 1, 'scale': 1.0, 'mask_circle': True},
+        # summary and histogram features with a bit more context, original resolution
+        'features_context':
+        {'features': 'summary', 'size': 2, 'scale': 1.0},
+        # summary and histogram features with more context and at lower resolution
+        'features_lowres' :
+        {'features': 'summary', 'size': 4, 'scale': 0.25}
+    }
+
+    # extract features with the different parameters in a loop
+    for feature_name, cur_params in tqdm.tqdm(params.items()):
+        # features will be saved in `adata.obsm[feature_name]`
+        sq.im.calculate_image_features(adata, img, key_added=feature_name, n_jobs=4, **cur_params)
+
+    # add all data together
+    # fill nans
+    adata.obsm['features_orig'].fillna(value=0, inplace=True)
+    # combine features in one dataframe
+    adata.obsm['features'] = pd.concat([adata.obsm[f] for f in params.keys()], axis='columns')
+    # make sure that we have no duplicated feature names in the combined table
+    adata.obsm['features'].columns = ad.utils.make_index_unique(adata.obsm['features'].columns)
+
+    # create features object
+    features = adata.obsm['features']
+    # create temporary adata to calculate the clustering
+    adata2 = ad.AnnData(features)
+    # important - feature values are not scaled, so need to scale them before PCA
+    # interesting analysis: what scaling works best? use e.g. clusters in gexp as ground truth?
+    sc.pp.scale(adata2)
+    # calculate leiden clustering
+    # compute principle component analysis coordinates, loadings and variance composition
+    sc.pp.pca(adata2, n_comps=min(10, features.shape[1] - 1))
+    # compute a neighborhood graph of observations
+    sc.pp.neighbors(adata2)
+    # compute umap
+    sc.tl.umap(adata2)
+    # cluster cells into subgroups  using the Leiden algorithm
+    sc.tl.leiden(adata2, key_added='features_cluster')
+
+    # transfer the calculations back to adata
+    adata.obs['features_cluster'] = adata2.obs['features_cluster']
+    adata.obsm['X_pca'] = adata2.obs['X_pca']
+    adata.obs['X_umap'] = adata2.obs['X_umap']
+
+    # plot umap image feature clusters in gene expression space
+    plt.rcParams['figure.figsize'] = (4, 4)
+    sc.pl.umap(adata, color='features_cluster')
+
+    ####### calculate the gene expression clusters
+    adata.var['mt'] = adata.var_names.str.startswith('MT-')
+    print('Amount of mitochondrial cells: ' + str(len(['True' for i in adata.var['mt'] if i != False])))
+
+    # calculate standard Quality Control (QC) metrics and update the data set
+    sc.pp.calculate_qc_metrics(adata, qc_vars=['mt'], inplace=True)
+    cell_thresh_min = 100  # 4000 #100
+    cell_thresh_max = 45000
+
+    # some filtering
+    sc.pp.filter_cells(adata, min_counts=cell_thresh_min)
+    sc.pp.filter_cells(adata, max_counts=cell_thresh_max)
+    adata = adata[adata.obs["pct_counts_mt"] < 20]
+    print(f"#cells after MT filter: {adata.n_obs}")
+    sc.pp.filter_genes(adata, min_cells=10)
+
+    # normalization of visium counts data to detect highly variable genes
+    sc.pp.normalize_total(adata, inplace=True)
+    sc.pp.log1p(adata)
+    sc.pp.highly_variable_genes(adata, flavor='seurat', n_top_genes=2000)
+
+    # manifold embedding and clustering based on transcriptional similarity on different resolutions
+    sc.pp.pca(adata)
+    sc.pp.neighbors(adata)
+    sc.tl.leiden(adata, key_added=f'gene_expr_cluster')
+
+    # plot some covariates to check for structure
+    plt.rcParams['figure.figsize'] = (4, 4)
+    sc.pl.umap(adata, color=['total_counts', 'n_genes_by_counts', 'gene_expr_cluster'], wspace=0.4)
 
     return adata
 
