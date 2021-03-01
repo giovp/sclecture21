@@ -182,7 +182,7 @@ def image_feature_spcae():
         'features_context':
         {'features': 'summary', 'size': 2, 'scale': 1.0},
         # summary and histogram features with more context and at lower resolution
-        'features_lowres' :
+        'features_lowres':
         {'features': 'summary', 'size': 4, 'scale': 0.25}
     }
 
@@ -537,5 +537,6 @@ def visualize_specific_genes():
 
     return adata
 
-
+adata = image_feature_spcae()
+adata = pre_processing()
 adata = if_clusters_in_ge_space()
