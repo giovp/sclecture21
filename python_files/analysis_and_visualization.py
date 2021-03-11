@@ -537,6 +537,6 @@ def visualize_specific_genes():
 
     return adata
 
-adata = image_feature_spcae()
+#adata = image_feature_spcae()
 adata = pre_processing()
 adata = if_clusters_in_ge_space()
